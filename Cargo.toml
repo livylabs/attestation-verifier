@@ -1,0 +1,21 @@
+[package]
+name = "attestation_verifier"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+sha2 = "0.10"
+base64 = "0.21"
+# Intel DCAP verification
+dcap-rs = "0.1"
+# For certificate parsing and crypto verification
+x509-parser = "0.15"
+der-parser = "8.2"
+ring = "0.17"
+webpki = "0.22"
+# Additional crypto dependencies
+p256 = "0.13"
+sha3 = "0.10"
