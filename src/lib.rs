@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose, Engine as _};
 use dcap_qvl::collateral::get_collateral;
+use dcap_qvl::quote::Quote;
 use dcap_qvl::verify::ring::verify;
 pub use dcap_qvl::PHALA_PCCS_URL;
 use serde::Deserialize;
@@ -13,6 +14,7 @@ use serde::Deserialize;
 pub use error::{AttestationError, Result};
 
 const MIN_QUOTE_LEN: usize = 48;
+pub const REPORT_DATA_LEN: usize = 64;
 pub const TDX_TEE_TYPE: u32 = 0x0000_0081;
 
 #[derive(Deserialize)]
@@ -135,6 +137,24 @@ pub async fn verify_tdx_quote_json_hex(tdx_quote_json_hex: &str) -> Result<()> {
         .await
 }
 
+/// Extracts the 64-byte TDX report data from a raw quote.
+pub fn extract_report_data(quote: &[u8]) -> Result<[u8; REPORT_DATA_LEN]> {
+    ensure_tdx_quote(quote)?;
+
+    let parsed_quote =
+        Quote::parse(quote).map_err(|error| AttestationError::QuoteParse(error.to_string()))?;
+    let report = parsed_quote.report.as_td10().ok_or_else(|| {
+        AttestationError::QuoteParse("quote does not contain a TDX report body".to_string())
+    })?;
+
+    Ok(report.report_data)
+}
+
+/// Extracts the TDX report data from a raw quote and returns it as lowercase hex.
+pub fn extract_report_data_hex(quote: &[u8]) -> Result<String> {
+    Ok(hex::encode(extract_report_data(quote)?))
+}
+
 /// Decodes a raw quote from hex.
 pub fn decode_quote_hex(quote_hex: &str) -> Result<Vec<u8>> {
     Ok(hex::decode(normalize_hex(quote_hex))?)
@@ -215,6 +235,39 @@ mod tests {
             u32::from_le_bytes([quote[4], quote[5], quote[6], quote[7]]),
             TDX_TEE_TYPE
         );
+    }
+
+    #[test]
+    fn extract_report_data_hex_matches_example_json() {
+        let example: Value = serde_json::from_str(include_str!("../example.json")).unwrap();
+        let wrapped_quote_hex = example
+            .pointer("/tdx_attestation/quote_hex")
+            .and_then(Value::as_str)
+            .unwrap();
+        let quote = decode_tdx_quote_json_hex(wrapped_quote_hex).unwrap();
+        let report_data = extract_report_data_hex(&quote).unwrap();
+
+        assert_eq!(
+            report_data,
+            "ca5724112df93dc603b0df5568cc9cb850dec4492a8a6867ae5c798a0a4ca5a66968d64bfc078cd067317c6e54a5237bfaf413919f9a4bdf9692899fbf72ac19"
+        );
+    }
+
+    #[test]
+    fn extracted_report_data_differs_from_example_metadata_field() {
+        let example: Value = serde_json::from_str(include_str!("../example.json")).unwrap();
+        let wrapped_quote_hex = example
+            .pointer("/tdx_attestation/quote_hex")
+            .and_then(Value::as_str)
+            .unwrap();
+        let metadata_report_data = example
+            .pointer("/tdx_attestation/reportdata_hex")
+            .and_then(Value::as_str)
+            .unwrap();
+        let quote = decode_tdx_quote_json_hex(wrapped_quote_hex).unwrap();
+        let quote_report_data = extract_report_data_hex(&quote).unwrap();
+
+        assert_ne!(quote_report_data, metadata_report_data);
     }
 
     #[test]

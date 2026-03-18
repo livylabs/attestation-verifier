@@ -8,6 +8,7 @@ It is focused on the one thing you want to publish as a reusable crate:
 - verify raw quote hex
 - verify the common wrapped payload shape `{"tdx":{"quote":"..."}}`
 - verify the hex-encoded form of that wrapped payload, which matches the `quote_hex` field in this repo's `example.json`
+- extract `report_data` from a raw quote
 
 The crate fetches Intel collaterals through PCCS using [`dcap-qvl`](https://docs.rs/dcap-qvl/latest/dcap_qvl/). By default it reads `PCCS_URL` from the environment and falls back to `PHALA_PCCS_URL`.
 
@@ -54,6 +55,17 @@ async fn demo() -> attestation_verifier::Result<()> {
 }
 ```
 
+Extract `report_data` as hex:
+
+```rust
+use attestation_verifier::{extract_report_data_hex, decode_tdx_quote_json_hex};
+
+fn demo() -> attestation_verifier::Result<String> {
+    let quote = decode_tdx_quote_json_hex("7b226...")?;
+    extract_report_data_hex(&quote)
+}
+```
+
 ## Local Example
 
 This repo includes [`example.json`](./example.json). The relevant field is:
@@ -66,6 +78,12 @@ That field is not raw quote hex. It is hex-encoded JSON containing a base64 quot
 
 ```rust
 use attestation_verifier::verify_tdx_quote_json_hex;
+```
+
+If you want the `report_data` from that same field, use:
+
+```rust
+use attestation_verifier::{decode_tdx_quote_json_hex, extract_report_data_hex};
 ```
 
 ## Notes

@@ -20,6 +20,9 @@ pub enum AttestationError {
     #[error("System time error: {0}")]
     SystemTime(String),
 
+    #[error("Quote parsing error: {0}")]
+    QuoteParse(String),
+
     #[error("Quote verification error: {0}")]
     Verification(String),
 
